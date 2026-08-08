@@ -1,0 +1,142 @@
+-- [ Wan.King Ultra Pro - Light Pastel Edition ]
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local localPlayer = Players.LocalPlayer
+
+-- ล้างของเก่า
+if localPlayer.PlayerGui:FindFirstChild("WanMegaGui") then localPlayer.PlayerGui["WanMegaGui"]:Destroy() end
+
+-- ฟังก์ชันลากปุ่มแดง
+local function MakeDraggable(guiObject)
+    local dragging, dragStart, startPos
+    guiObject.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = guiObject.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            guiObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+local ScreenGui = Instance.new("ScreenGui", localPlayer.PlayerGui)
+ScreenGui.Name = "WanMegaGui"
+
+-- ปุ่มแดง (Draggable)
+local ToggleBtn = Instance.new("TextButton", ScreenGui)
+ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
+ToggleBtn.Position = UDim2.new(0, 40, 0, 180)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 120)
+ToggleBtn.Text = "WAN"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
+MakeDraggable(ToggleBtn)
+
+-- หน้าต่างหลัก (ธีมสีอ่อน สบายตา)
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 300, 0, 320)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -160)
+MainFrame.BackgroundColor3 = Color3.fromRGB(245, 245, 250) -- สีขาวอมเทานวลๆ
+MainFrame.Visible = false
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
+
+-- ขอบเงาเบาๆ ให้ดูมีมิติ
+local UIStroke = Instance.new("UIStroke", MainFrame)
+UIStroke.Color = Color3.fromRGB(220, 220, 230)
+UIStroke.Thickness = 1.5
+
+-- หัวข้อ Panel
+local TitleText = Instance.new("TextLabel", MainFrame)
+TitleText.Size = UDim2.new(0, 200, 0, 35)
+TitleText.Position = UDim2.new(0, 12, 0, 8)
+TitleText.Text = "Wan.King Light Panel"
+TitleText.TextColor3 = Color3.fromRGB(40, 40, 50) -- ตัวหนังสือสีเข้มอ่านง่าย
+TitleText.TextSize = 14
+TitleText.Font = Enum.Font.GothamBold
+TitleText.BackgroundTransparency = 1
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+
+-- ปุ่มควบคุม (Minimize & Close)
+local MinBtn = Instance.new("TextButton", MainFrame)
+MinBtn.Size = UDim2.new(0, 26, 0, 26)
+MinBtn.Position = UDim2.new(1, -65, 0, 8)
+MinBtn.Text = "-"
+MinBtn.TextColor3 = Color3.fromRGB(40, 40, 50)
+MinBtn.BackgroundColor3 = Color3.fromRGB(230, 230, 240)
+Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 6)
+MinBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false end)
+
+local CloseBtn = Instance.new("TextButton", MainFrame)
+CloseBtn.Size = UDim2.new(0, 26, 0, 26)
+CloseBtn.Position = UDim2.new(1, -33, 0, 8)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+-- เนื้อหาด้านใน
+local Content = Instance.new("ScrollingFrame", MainFrame)
+Content.Size = UDim2.new(1, -20, 1, -55)
+Content.Position = UDim2.new(0, 10, 0, 45)
+Content.BackgroundTransparency = 1
+Content.CanvasSize = UDim2.new(0, 0, 0, 200)
+
+local speedVal = 100
+local SliderLabel = Instance.new("TextLabel", Content)
+SliderLabel.Text = "Speed Slider: " .. speedVal
+SliderLabel.Size = UDim2.new(1, 0, 0, 30)
+SliderLabel.TextColor3 = Color3.fromRGB(60, 60, 70)
+SliderLabel.BackgroundTransparency = 1
+SliderLabel.Font = Enum.Font.GothamMedium
+SliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Slider Bar สีอ่อน
+local Bar = Instance.new("Frame", Content)
+Bar.Size = UDim2.new(1, 0, 0, 6)
+Bar.Position = UDim2.new(0, 0, 0.3, 0)
+Bar.BackgroundColor3 = Color3.fromRGB(220, 220, 230)
+Instance.new("UICorner", Bar).CornerRadius = UDim.new(1, 0)
+
+local Handler = Instance.new("TextButton", Bar)
+Handler.Size = UDim2.new(0, 18, 0, 18)
+Handler.Position = UDim2.new(0, 0, -0.5, 0)
+Handler.BackgroundColor3 = Color3.fromRGB(255, 80, 120)
+Handler.Text = ""
+Instance.new("UICorner", Handler).CornerRadius = UDim.new(1, 0)
+
+Handler.MouseButton1Down:Connect(function()
+    local drag = true
+    while drag and RunService.RenderStepped:Wait() do
+        if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then drag = false break end
+        local mouse = UserInputService:GetMouseLocation()
+        local percent = math.clamp((mouse.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
+        Handler.Position = UDim2.new(percent, -9, -0.5, 0)
+        speedVal = math.floor(16 + (200 - 16) * percent)
+        SliderLabel.Text = "Speed Slider: " .. speedVal
+        _G.Speed = speedVal
+    end
+end)
+
+-- ปุ่ม WAN เปิดเมนู
+ToggleBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
+
+-- Loop ความเร็ว
+RunService.Stepped:Connect(function()
+    pcall(function()
+        if _G.Speed and localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid") then
+            localPlayer.Character.Humanoid.WalkSpeed = _G.Speed
+        end
+    end)
+end)
