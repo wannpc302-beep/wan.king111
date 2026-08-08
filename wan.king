@@ -1,0 +1,132 @@
+-- [ Wan.King Ultimate Stable Edition ]
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local localPlayer = Players.LocalPlayer
+
+if localPlayer.PlayerGui:FindFirstChild("WanStableGui") then
+    localPlayer.PlayerGui["WanStableGui"]:Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "WanStableGui"
+ScreenGui.Parent = localPlayer.PlayerGui
+ScreenGui.ResetOnSpawn = false
+
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
+ToggleBtn.Position = UDim2.new(0, 40, 0, 180)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(140, 100, 220)
+ToggleBtn.Text = "WAN"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.TextSize = 11
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.Parent = ScreenGui
+
+local UIC = Instance.new("UICorner")
+UIC.CornerRadius = UDim.new(1, 0)
+UIC.Parent = ToggleBtn
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 300, 0, 200)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 25, 45)
+MainFrame.Visible = false
+MainFrame.Parent = ScreenGui
+
+local MFCorner = Instance.new("UICorner")
+MFCorner.CornerRadius = UDim.new(0, 10)
+MFCorner.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundTransparency = 1
+Title.Text = "  ⚡ Wan.King Stable Panel"
+Title.TextColor3 = Color3.fromRGB(220, 180, 255)
+Title.TextSize = 12
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 2)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+CloseBtn.TextSize = 14
+CloseBtn.Parent = MainFrame
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+local yOffset = 42
+local function addToggle(name, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -20, 0, 34)
+    btn.Position = UDim2.new(0, 10, 0, yOffset)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 40, 70)
+    btn.Text = "  " .. name .. " : OFF"
+    btn.TextColor3 = Color3.fromRGB(220, 220, 220)
+    btn.TextSize = 11
+    btn.Font = Enum.Font.GothamMedium
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    btn.Parent = MainFrame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = btn
+
+    local state = false
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        if state then
+            btn.BackgroundColor3 = Color3.fromRGB(140, 100, 220)
+            btn.Text = "  " .. name .. " : ON"
+        else
+            btn.BackgroundColor3 = Color3.fromRGB(50, 40, 70)
+            btn.Text = "  " .. name .. " : OFF"
+        end
+        callback(state)
+    end)
+    yOffset = yOffset + 40
+end
+
+local speedEnabled = false
+local fullbrightEnabled = false
+
+addToggle("Speed Boost (เดินเร็ว)", function(state)
+    speedEnabled = state
+end)
+
+addToggle("Fullbright (สว่างตาแตก)", function(state)
+    fullbrightEnabled = state
+end)
+
+RunService.RenderStepped:Connect(function()
+    pcall(function()
+        if speedEnabled and localPlayer.Character then
+            local hum = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if hum and hum.MoveDirection.Magnitude > 0 then
+                local hrp = localPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    hrp.CFrame = hrp.CFrame + (hum.MoveDirection * 0.5)
+                end
+            end
+        end
+
+        if fullbrightEnabled then
+            Lighting.Brightness = 2
+            Lighting.ClockTime = 14
+            Lighting.GlobalShadows = false
+        else
+            Lighting.GlobalShadows = true
+        end
+    end)
+end)
+
