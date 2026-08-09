@@ -1,0 +1,254 @@
+-- Wan.King Ultimate Panel [Ultra-Stable Version - Fixed & Emojis]
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local UserInputService = game:GetService("UserInputService")
+
+-- แก้จุดที่ทำให้สคริปต์ค้างตอนรัน
+local localPlayer = Players.LocalPlayer
+while not localPlayer do
+    task.wait()
+    localPlayer = Players.LocalPlayer
+end
+
+local PlayerGui = localPlayer:WaitForChild("PlayerGui")
+
+-- [ Cleanup ]
+if PlayerGui:FindFirstChild("WanMegaGui") then
+    PlayerGui["WanMegaGui"]:Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui", PlayerGui)
+ScreenGui.Name = "WanMegaGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+
+-- [ Main Frame ]
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 300, 0, 350)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -175)
+MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+MainFrame.Visible = false
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
+-- [ Connections Store ]
+local Connections = {}
+
+-- [ UI Elements Setup ]
+local TabBar = Instance.new("Frame", MainFrame)
+TabBar.Size = UDim2.new(1, 0, 0, 40)
+TabBar.BackgroundTransparency = 1
+
+local ContentContainer = Instance.new("Frame", MainFrame)
+ContentContainer.Size = UDim2.new(1, 0, 1, -40)
+ContentContainer.Position = UDim2.new(0, 0, 0, 40)
+ContentContainer.BackgroundTransparency = 1
+
+local function createTabContent(name)
+    local scroll = Instance.new("ScrollingFrame", ContentContainer)
+    scroll.Name = name
+    scroll.Size = UDim2.new(1, 0, 1, 0)
+    scroll.BackgroundTransparency = 1
+    scroll.Visible = false
+    scroll.ScrollBarThickness = 2
+    scroll.AutomaticCanvasSize = Enum.AutomaticCanvasSize.Y
+    scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+    local list = Instance.new("UIListLayout", scroll)
+    list.Padding = UDim.new(0, 8)
+    list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+
+    local pad = Instance.new("UIPadding", scroll)
+    pad.PaddingTop = UDim.new(0, 8)
+
+    return scroll
+end
+
+-- [ Tabs with Emoji ]
+local Tabs = {
+    ["👤 ตัวละคร"] = createTabContent("Char"),
+    ["🔫 ต่อสู้"] = createTabContent("Combat"),
+    ["👁️ ESP"] = createTabContent("ESP"),
+    ["🚦 FPS"] = createTabContent("FPS")
+}
+
+local TabOrder = {
+    "👤 ตัวละคร",
+    "🔫 ต่อสู้",
+    "👁️ ESP",
+    "🚦 FPS"
+}
+
+-- [ Tab Switcher Logic ]
+for index, name in ipairs(TabOrder) do
+    local container = Tabs[name]
+
+    local btn = Instance.new("TextButton", TabBar)
+    btn.Size = UDim2.new(0.25, 0, 1, 0)
+    btn.Position = UDim2.new((index - 1) * 0.25, 0, 0, 0)
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    btn.TextSize = 11
+    btn.Font = Enum.Font.SourceSansBold
+
+    btn.MouseButton1Click:Connect(function()
+        for _, c in pairs(ContentContainer:GetChildren()) do
+            if c:IsA("ScrollingFrame") then
+                c.Visible = false
+            end
+        end
+        container.Visible = true
+    end)
+end
+
+Tabs["👤 ตัวละคร"].Visible = true
+
+-- [ Toggle System ]
+local function createToggle(parent, title, toggleName, onEnable, onDisable)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(0.9, 0, 0, 40)
+    btn.Text = title
+    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 14
+    btn.Font = Enum.Font.SourceSansBold
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+
+    local active = false
+
+    btn.MouseButton1Click:Connect(function()
+        active = not active
+
+        btn.BackgroundColor3 = active
+            and Color3.fromRGB(255, 80, 120)
+            or Color3.fromRGB(60, 60, 70)
+
+        if active then
+            pcall(onEnable)
+        else
+            if Connections[toggleName] then
+                Connections[toggleName]:Disconnect()
+                Connections[toggleName] = nil
+            end
+            pcall(onDisable)
+        end
+    end)
+end
+
+-- [ Functional Modules ]
+
+-- 1. ตัวละคร
+createToggle(
+    Tabs["👤 ตัวละคร"],
+    "Speed Boost",
+    "Speed",
+    function()
+        if Connections["Speed"] then
+            Connections["Speed"]:Disconnect()
+        end
+        Connections["Speed"] = RunService.RenderStepped:Connect(function()
+            if localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid") then
+                localPlayer.Character.Humanoid.WalkSpeed = 50
+            end
+        end)
+    end,
+    function()
+        if localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid") then
+            localPlayer.Character.Humanoid.WalkSpeed = 16
+        end
+    end
+)
+
+-- 2. ต่อสู้
+createToggle(
+    Tabs["🔫 ต่อสู้"],
+    "Noclip",
+    "Noclip",
+    function()
+        if Connections["Noclip"] then
+            Connections["Noclip"]:Disconnect()
+        end
+        Connections["Noclip"] = RunService.Stepped:Connect(function()
+            if localPlayer.Character then
+                for _, v in pairs(localPlayer.Character:GetDescendants()) do
+                    if v:IsA("BasePart") then
+                        v.CanCollide = false
+                    end
+                end
+            end
+        end)
+    end,
+    function()
+        if localPlayer.Character then
+            for _, v in pairs(localPlayer.Character:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = true
+                end
+            end
+        end
+    end
+)
+
+-- 3. ESP
+createToggle(
+    Tabs["👁️ ESP"],
+    "Player ESP",
+    "ESP",
+    function()
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= localPlayer and p.Character then
+                if not p.Character:FindFirstChild("WanESP") then
+                    local h = Instance.new("Highlight")
+                    h.Name = "WanESP"
+                    h.FillColor = Color3.fromRGB(255, 80, 120)
+                    h.Parent = p.Character
+                end
+            end
+        end
+    end,
+    function()
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character then
+                local esp = p.Character:FindFirstChild("WanESP")
+                if esp then
+                    esp:Destroy()
+                end
+            end
+        end
+    end
+)
+
+-- 4. FPS
+createToggle(
+    Tabs["🚦 FPS"],
+    "Potato Graphics",
+    "FPS",
+    function()
+        Lighting.GlobalShadows = false
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.Material = Enum.Material.SmoothPlastic
+            end
+        end
+    end,
+    function()
+        Lighting.GlobalShadows = true
+    end
+)
+
+-- [ Open / Close Toggle ]
+local ToggleBtn = Instance.new("TextButton", ScreenGui)
+ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
+ToggleBtn.Position = UDim2.new(0, 20, 0, 100)
+ToggleBtn.Text = "WAN"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.TextSize = 14
+ToggleBtn.Font = Enum.Font.SourceSansBold
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 120)
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 8)
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
