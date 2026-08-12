@@ -1,254 +1,589 @@
--- Wan.King Ultimate Panel [Ultra-Stable Version - Fixed & Emojis]
+-- Wan.King Ultimate Panel (Production Grade - Fully Optimized & Unified v2.0)
+local Success, Err = pcall(function()
+
+local GlobalEnv
+pcall(function()
+    if typeof(getgenv) == "function" then GlobalEnv = getgenv() end
+end)
+
+if GlobalEnv and typeof(GlobalEnv.WanKingCleanup) == "function" then
+    pcall(GlobalEnv.WanKingCleanup)
+    GlobalEnv.WanKingCleanup = nil
+end
+
+local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
 local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
 
--- แก้จุดที่ทำให้สคริปต์ค้างตอนรัน
 local localPlayer = Players.LocalPlayer
 while not localPlayer do
     task.wait()
     localPlayer = Players.LocalPlayer
 end
 
-local PlayerGui = localPlayer:WaitForChild("PlayerGui")
+local UI_MAIN = Color3.fromRGB(45, 45, 52)
+local UI_BUTTON = Color3.fromRGB(60, 60, 68)
+local UI_TAB = Color3.fromRGB(52, 52, 60)
+local UI_ACTIVE = Color3.fromRGB(255, 80, 140)
+local UI_TEXT = Color3.fromRGB(245, 245, 245)
+local ESP_FILL = Color3.fromRGB(0, 220, 255)
+local ESP_OUTLINE = Color3.fromRGB(255, 255, 255)
 
--- [ Cleanup ]
-if PlayerGui:FindFirstChild("WanMegaGui") then
-    PlayerGui["WanMegaGui"]:Destroy()
+local hasDrawing = (typeof(Drawing) == "table" and typeof(Drawing.new) == "function")
+
+local parentUI
+if typeof(gethui) == "function" then
+    parentUI = gethui()
+elseif syn and typeof(syn.protect_gui) == "function" then
+    parentUI = CoreGui
+else
+    parentUI = localPlayer:WaitForChild("PlayerGui")
 end
 
-local ScreenGui = Instance.new("ScreenGui", PlayerGui)
+local oldGui = parentUI:FindFirstChild("WanMegaGui")
+if oldGui then oldGui:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "WanMegaGui"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
 
--- [ Main Frame ]
-local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 300, 0, 350)
-MainFrame.Position = UDim2.new(0.5, -150, 0.5, -175)
-MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+if syn and typeof(syn.protect_gui) == "function" then
+    syn.protect_gui(ScreenGui)
+    ScreenGui.Parent = CoreGui
+else
+    ScreenGui.Parent = parentUI
+end
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 310, 0, 410)
+MainFrame.Position = UDim2.new(0.5, -155, 0.5, -205)
+MainFrame.BackgroundColor3 = UI_MAIN
+MainFrame.BackgroundTransparency = 0.05
+MainFrame.BorderSizePixel = 0
 MainFrame.Visible = false
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+MainFrame.Parent = ScreenGui
 
--- [ Connections Store ]
-local Connections = {}
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = MainFrame
 
--- [ UI Elements Setup ]
-local TabBar = Instance.new("Frame", MainFrame)
-TabBar.Size = UDim2.new(1, 0, 0, 40)
+local TitleBar = Instance.new("Frame")
+TitleBar.Name = "TitleBar"
+TitleBar.Size = UDim2.new(1, 0, 0, 32)
+TitleBar.BackgroundTransparency = 1
+TitleBar.Active = true
+TitleBar.Parent = MainFrame
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Size = UDim2.new(1, 0, 1, 0)
+TitleText.BackgroundTransparency = 1
+TitleText.Text = "WAN PANEL v2.0 (ULTIMATE)"
+TitleText.TextColor3 = UI_TEXT
+TitleText.TextSize = 13
+TitleText.Font = Enum.Font.SourceSansBold
+TitleText.Parent = TitleBar
+
+local TabBar = Instance.new("Frame")
+TabBar.Name = "TabBar"
+TabBar.Size = UDim2.new(1, 0, 0, 38)
+TabBar.Position = UDim2.new(0, 0, 0, 32)
 TabBar.BackgroundTransparency = 1
+TabBar.Parent = MainFrame
 
-local ContentContainer = Instance.new("Frame", MainFrame)
-ContentContainer.Size = UDim2.new(1, 0, 1, -40)
-ContentContainer.Position = UDim2.new(0, 0, 0, 40)
+local ContentContainer = Instance.new("Frame")
+ContentContainer.Name = "ContentContainer"
+ContentContainer.Size = UDim2.new(1, 0, 1, -70)
+ContentContainer.Position = UDim2.new(0, 0, 0, 70)
 ContentContainer.BackgroundTransparency = 1
+ContentContainer.Parent = MainFrame
 
-local function createTabContent(name)
-    local scroll = Instance.new("ScrollingFrame", ContentContainer)
-    scroll.Name = name
-    scroll.Size = UDim2.new(1, 0, 1, 0)
-    scroll.BackgroundTransparency = 1
-    scroll.Visible = false
-    scroll.ScrollBarThickness = 2
-    scroll.AutomaticCanvasSize = Enum.AutomaticCanvasSize.Y
-    scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+local Connections = {}
+local function disconnect(name)
+    if Connections[name] then
+        pcall(function() Connections[name]:Disconnect() end)
+        Connections[name] = nil
+    end
+end
 
-    local list = Instance.new("UIListLayout", scroll)
+local function disconnectAll()
+    for name, conn in pairs(Connections) do
+        if conn then pcall(function() conn:Disconnect() end) end
+        Connections[name] = nil
+    end
+end
+
+local DRAG_THRESHOLD = 6
+
+local function makeDraggable(handle, object, prefix, onClick)
+    local dragging, dragStart, startPos, dragInput, hasMoved = false, nil, nil, nil, false
+    Connections[prefix .. "_Began"] = handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging, hasMoved, dragStart, startPos = true, false, input.Position, object.Position
+            local endConn
+            endConn = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    if not hasMoved and onClick then pcall(onClick) end
+                    if endConn then endConn:Disconnect() end
+                end
+            end)
+        end
+    end)
+    Connections[prefix .. "_Changed"] = handle.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    Connections[prefix .. "_UIS"] = UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            if not hasMoved then
+                if math.abs(delta.X) > DRAG_THRESHOLD or math.abs(delta.Y) > DRAG_THRESHOLD then
+                    hasMoved = true
+                end
+            end
+            if hasMoved then
+                object.Position = UDim2.new(
+                    startPos.X.Scale,
+                    startPos.X.Offset + delta.X,
+                    startPos.Y.Scale,
+                    startPos.Y.Offset + delta.Y
+                )
+            end
+        end
+    end)
+end
+
+makeDraggable(TitleBar, MainFrame, "DragMain")
+
+local Tabs, TabButtons = {}, {}
+local Names = {"Char", "Combat", "ESP", "FPS"}
+local DisplayNames = {"ตัวละคร", "ต่อสู้", "ESP", "ภาพ/แสง"}
+
+local function showTab(name)
+    for tName, tab in pairs(Tabs) do tab.Visible = (tName == name) end
+    for tName, btn in pairs(TabButtons) do
+        if tName == name then
+            btn.BackgroundColor3 = UI_ACTIVE
+            btn.BackgroundTransparency = 0.02
+        else
+            btn.BackgroundColor3 = UI_TAB
+            btn.BackgroundTransparency = 0.05
+        end
+    end
+end
+
+for i, name in ipairs(Names) do
+    local tab = Instance.new("ScrollingFrame")
+    tab.Name = name
+    tab.Size = UDim2.new(1, 0, 1, 0)
+    tab.BackgroundTransparency = 1
+    tab.BorderSizePixel = 0
+    tab.Visible = false
+    tab.ScrollBarThickness = 3
+    tab.AutomaticCanvasSize = Enum.AutomaticCanvasSize.Y
+    tab.CanvasSize = UDim2.new(0, 0, 0, 0)
+    tab.Parent = ContentContainer
+    Tabs[name] = tab
+
+    local list = Instance.new("UIListLayout")
     list.Padding = UDim.new(0, 8)
     list.HorizontalAlignment = Enum.HorizontalAlignment.Center
     list.SortOrder = Enum.SortOrder.LayoutOrder
+    list.Parent = tab
 
-    local pad = Instance.new("UIPadding", scroll)
+    local pad = Instance.new("UIPadding")
     pad.PaddingTop = UDim.new(0, 8)
+    pad.PaddingBottom = UDim.new(0, 8)
+    pad.Parent = tab
 
-    return scroll
-end
-
--- [ Tabs with Emoji ]
-local Tabs = {
-    ["👤 ตัวละคร"] = createTabContent("Char"),
-    ["🔫 ต่อสู้"] = createTabContent("Combat"),
-    ["👁️ ESP"] = createTabContent("ESP"),
-    ["🚦 FPS"] = createTabContent("FPS")
-}
-
-local TabOrder = {
-    "👤 ตัวละคร",
-    "🔫 ต่อสู้",
-    "👁️ ESP",
-    "🚦 FPS"
-}
-
--- [ Tab Switcher Logic ]
-for index, name in ipairs(TabOrder) do
-    local container = Tabs[name]
-
-    local btn = Instance.new("TextButton", TabBar)
-    btn.Size = UDim2.new(0.25, 0, 1, 0)
-    btn.Position = UDim2.new((index - 1) * 0.25, 0, 0, 0)
-    btn.Text = name
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    local btn = Instance.new("TextButton")
+    btn.Name = name .. "TabButton"
+    btn.Size = UDim2.new(0.24, 0, 1, 0)
+    btn.Position = UDim2.new((i - 1) * 0.25, i == 1 and 4 or 0, 0, 0)
+    if i > 1 then btn.Size = UDim2.new(0.24, 0, 1, 0) end
+    btn.Text = DisplayNames[i]
+    btn.TextColor3 = UI_TEXT
     btn.TextSize = 11
     btn.Font = Enum.Font.SourceSansBold
+    btn.BackgroundColor3 = UI_TAB
+    btn.BackgroundTransparency = 0.05
+    btn.BorderSizePixel = 0
+    btn.Parent = TabBar
+    TabButtons[name] = btn
 
-    btn.MouseButton1Click:Connect(function()
-        for _, c in pairs(ContentContainer:GetChildren()) do
-            if c:IsA("ScrollingFrame") then
-                c.Visible = false
-            end
-        end
-        container.Visible = true
-    end)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 6)
+    c.Parent = btn
+
+    Connections["UI_Tab_" .. name] = btn.MouseButton1Click:Connect(function() showTab(name) end)
 end
 
-Tabs["👤 ตัวละคร"].Visible = true
+showTab("Char")
 
--- [ Toggle System ]
+local ToggleSetters = {}
+
 local function createToggle(parent, title, toggleName, onEnable, onDisable)
-    local btn = Instance.new("TextButton", parent)
-    btn.Size = UDim2.new(0.9, 0, 0, 40)
+    local btn = Instance.new("TextButton")
+    btn.Name = toggleName .. "Button"
+    btn.Size = UDim2.new(0.92, 0, 0, 40)
     btn.Text = title
-    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextSize = 14
+    btn.BackgroundColor3 = UI_BUTTON
+    btn.BackgroundTransparency = 0.05
+    btn.TextColor3 = UI_TEXT
+    btn.TextSize = 13
     btn.Font = Enum.Font.SourceSansBold
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    btn.BorderSizePixel = 0
+    btn.Parent = parent
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 6)
+    c.Parent = btn
 
     local active = false
-
-    btn.MouseButton1Click:Connect(function()
-        active = not active
-
-        btn.BackgroundColor3 = active
-            and Color3.fromRGB(255, 80, 120)
-            or Color3.fromRGB(60, 60, 70)
-
+    local function setState(state)
+        active = state
         if active then
-            pcall(onEnable)
+            btn.BackgroundColor3 = UI_ACTIVE
+            btn.BackgroundTransparency = 0.02
         else
-            if Connections[toggleName] then
-                Connections[toggleName]:Disconnect()
-                Connections[toggleName] = nil
-            end
-            pcall(onDisable)
-        end
-    end)
-end
-
--- [ Functional Modules ]
-
--- 1. ตัวละคร
-createToggle(
-    Tabs["👤 ตัวละคร"],
-    "Speed Boost",
-    "Speed",
-    function()
-        if Connections["Speed"] then
-            Connections["Speed"]:Disconnect()
-        end
-        Connections["Speed"] = RunService.RenderStepped:Connect(function()
-            if localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid") then
-                localPlayer.Character.Humanoid.WalkSpeed = 50
-            end
-        end)
-    end,
-    function()
-        if localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid") then
-            localPlayer.Character.Humanoid.WalkSpeed = 16
+            btn.BackgroundColor3 = UI_BUTTON
+            btn.BackgroundTransparency = 0.05
         end
     end
-)
 
--- 2. ต่อสู้
-createToggle(
-    Tabs["🔫 ต่อสู้"],
-    "Noclip",
-    "Noclip",
-    function()
-        if Connections["Noclip"] then
-            Connections["Noclip"]:Disconnect()
+    ToggleSetters[toggleName] = {
+        Set = function(state)
+            if active ~= state then
+                setState(state)
+                if state then
+                    local ok, err = pcall(onEnable)
+                    if not ok then
+                        warn("Toggle On Error (" .. toggleName .. "): " .. tostring(err))
+                        pcall(onDisable)
+                        setState(false)
+                    end
+                else
+                    local ok, err = pcall(onDisable)
+                    if not ok then warn("Toggle Off Error (" .. toggleName .. "): " .. tostring(err)) end
+                    setState(false)
+                end
+            end
+        end,
+        Get = function() return active end
+    }
+
+    Connections["UI_" .. toggleName .. "_Click"] = btn.MouseButton1Click:Connect(function()
+        local target = not active
+        setState(target)
+        if target then
+            local ok, err = pcall(onEnable)
+            if not ok then
+                warn("Toggle On Error (" .. toggleName .. "): " .. tostring(err))
+                pcall(onDisable)
+                setState(false)
+            end
+        else
+            local ok, err = pcall(onDisable)
+            if not ok then warn("Toggle Off Error (" .. toggleName .. "): " .. tostring(err)) end
+            setState(false)
         end
-        Connections["Noclip"] = RunService.Stepped:Connect(function()
-            if localPlayer.Character then
-                for _, v in pairs(localPlayer.Character:GetDescendants()) do
-                    if v:IsA("BasePart") then
-                        v.CanCollide = false
+    end)
+    return { Button = btn, SetState = setState }
+end
+
+-- 1. SPEED
+local OriginalWalkSpeed = setmetatable({}, { __mode = "k" })
+local SpeedEnabled = false
+
+local function saveWalkSpeed(char)
+    if char and OriginalWalkSpeed[char] == nil then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then OriginalWalkSpeed[char] = hum.WalkSpeed end
+    end
+end
+
+local function restoreWalkSpeed(char)
+    if char then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum and OriginalWalkSpeed[char] ~= nil then hum.WalkSpeed = OriginalWalkSpeed[char] end
+        OriginalWalkSpeed[char] = nil
+    end
+end
+
+createToggle(Tabs["Char"], "เพิ่มความเร็ว (Speed 50)", "Speed", function()
+    SpeedEnabled = true
+    disconnect("Feature_Speed")
+    local char = localPlayer.Character
+    if char then
+        saveWalkSpeed(char)
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then hum.WalkSpeed = 50 end
+    end
+    Connections["Feature_Speed"] = RunService.RenderStepped:Connect(function()
+        if not SpeedEnabled then return end
+        local char = localPlayer.Character
+        if not char then return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            saveWalkSpeed(char)
+            if hum.WalkSpeed ~= 50 then hum.WalkSpeed = 50 end
+        end
+    end)
+end, function()
+    SpeedEnabled = false
+    disconnect("Feature_Speed")
+    if localPlayer.Character then restoreWalkSpeed(localPlayer.Character) end
+end)
+
+-- 2. NOCLIP
+local OriginalCollision = setmetatable({}, { __mode = "k" })
+local NoclipEnabled = false
+
+local function saveCollision(part)
+    if part and OriginalCollision[part] == nil then OriginalCollision[part] = part.CanCollide end
+end
+
+local function restoreCollision()
+    for part, val in pairs(OriginalCollision) do
+        if part and part.Parent then pcall(function() part.CanCollide = val end) end
+    end
+    table.clear(OriginalCollision)
+end
+
+local function applyNoclip(char)
+    if not char then return end
+    for _, p in ipairs(char:GetDescendants()) do
+        if p:IsA("BasePart") then
+            saveCollision(p)
+            if p.CanCollide then p.CanCollide = false end
+        end
+    end
+end
+
+createToggle(Tabs["Combat"], "ทะลุกำแพง (Noclip)", "Noclip", function()
+    NoclipEnabled = true
+    disconnect("Feature_Noclip")
+    if localPlayer.Character then applyNoclip(localPlayer.Character) end
+    Connections["Feature_Noclip"] = RunService.Stepped:Connect(function()
+        if NoclipEnabled and localPlayer.Character then applyNoclip(localPlayer.Character) end
+    end)
+end, function()
+    NoclipEnabled = false
+    disconnect("Feature_Noclip")
+    restoreCollision()
+end)
+
+-- AIMBOT CONFIGURATIONS
+local AimbotTeamCheck = true
+local AimbotTargetPart = "Head"
+
+local teamToggleObj = createToggle(Tabs["Combat"], "ไม่ล็อคเพื่อนร่วมทีม (Team Check)", "TeamCheck", function()
+    AimbotTeamCheck = true
+end, function()
+    AimbotTeamCheck = false
+end)
+teamToggleObj.SetState(true)
+
+local targetPartBtn = Instance.new("TextButton")
+targetPartBtn.Name = "TargetPartButton"
+targetPartBtn.Size = UDim2.new(0.92, 0, 0, 40)
+targetPartBtn.Text = "เป้าหมาย: หัว (Head)"
+targetPartBtn.BackgroundColor3 = UI_BUTTON
+targetPartBtn.BackgroundTransparency = 0.05
+targetPartBtn.TextColor3 = UI_TEXT
+targetPartBtn.TextSize = 13
+targetPartBtn.Font = Enum.Font.SourceSansBold
+targetPartBtn.BorderSizePixel = 0
+targetPartBtn.Parent = Tabs["Combat"]
+
+local targetCorner = Instance.new("UICorner")
+targetCorner.CornerRadius = UDim.new(0, 6)
+targetCorner.Parent = targetPartBtn
+
+Connections["UI_TargetPart_Click"] = targetPartBtn.MouseButton1Click:Connect(function()
+    if AimbotTargetPart == "Head" then
+        AimbotTargetPart = "HumanoidRootPart"
+        targetPartBtn.Text = "เป้าหมาย: ลำตัว (Body)"
+        targetPartBtn.BackgroundColor3 = UI_ACTIVE
+        targetPartBtn.BackgroundTransparency = 0.02
+    else
+        AimbotTargetPart = "Head"
+        targetPartBtn.Text = "เป้าหมาย: หัว (Head)"
+        targetPartBtn.BackgroundColor3 = UI_BUTTON
+        targetPartBtn.BackgroundTransparency = 0.05
+    end
+end)
+
+-- SHARED OPTIMIZED RAYCAST & VISIBILITY
+local sharedRaycastParams = RaycastParams.new()
+sharedRaycastParams.FilterType = Enum.RaycastFilterType.Exclude
+sharedRaycastParams.IgnoreWater = true
+
+local function isVisible(targetPart, character)
+    if not targetPart or not targetPart.Parent or not character or not character:FindFirstChild("Head") then return false end
+    local origin = character.Head.Position
+    local direction = targetPart.Position - origin
+    
+    sharedRaycastParams.FilterDescendantsInstances = {character, Workspace.CurrentCamera}
+    
+    local result = Workspace:Raycast(origin, direction, sharedRaycastParams)
+    if result then
+        local hitPart = result.Instance
+        if hitPart:IsDescendantOf(targetPart.Parent) then
+            return true
+        end
+        return false
+    end
+    return true
+end
+
+-- SHARED TARGET FINDER
+local function getBestTarget(fovRadius)
+    local bestTarget = nil
+    local shortestDist = math.huge
+    local camera = Workspace.CurrentCamera
+    if not camera then return nil end
+    local viewportSize = camera.ViewportSize
+    local screenCenter = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+    local myChar = localPlayer.Character
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= localPlayer and p.Character then
+            if AimbotTeamCheck and localPlayer.Team and p.Team and localPlayer.Team == p.Team then
+                continue
+            end
+
+            local hum = p.Character:FindFirstChildOfClass("Humanoid")
+            local targetPart = p.Character:FindFirstChild(AimbotTargetPart)
+            
+            if hum and hum.Health > 0 and targetPart then
+                if isVisible(targetPart, myChar) then
+                    local screenPoint, onScreen = camera:WorldToViewportPoint(targetPart.Position)
+                    if onScreen then
+                        local screenPos2D = Vector2.new(screenPoint.X, screenPoint.Y)
+                        local dist = (screenPos2D - screenCenter).Magnitude
+                        if dist <= fovRadius and dist < shortestDist then
+                            shortestDist = dist
+                            bestTarget = targetPart
+                        end
                     end
                 end
             end
-        end)
-    end,
-    function()
-        if localPlayer.Character then
-            for _, v in pairs(localPlayer.Character:GetDescendants()) do
-                if v:IsA("BasePart") then
-                    v.CanCollide = true
-                end
-            end
         end
     end
-)
+    return bestTarget
+end
 
--- 3. ESP
-createToggle(
-    Tabs["👁️ ESP"],
-    "Player ESP",
-    "ESP",
-    function()
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= localPlayer and p.Character then
-                if not p.Character:FindFirstChild("WanESP") then
-                    local h = Instance.new("Highlight")
-                    h.Name = "WanESP"
-                    h.FillColor = Color3.fromRGB(255, 80, 120)
-                    h.Parent = p.Character
-                end
-            end
-        end
-    end,
-    function()
-        for _, p in pairs(Players:GetPlayers()) do
-            if p.Character then
-                local esp = p.Character:FindFirstChild("WanESP")
-                if esp then
-                    esp:Destroy()
-                end
-            end
-        end
+-- 3. M-BOT 1
+local MBot1Enabled = false
+local FOV_RADIUS_1 = 120
+local AimSmoothness = 0.25
+
+local fovCircle1 = hasDrawing and Drawing.new("Circle") or nil
+if fovCircle1 then
+    fovCircle1.Visible = false
+    fovCircle1.Radius = FOV_RADIUS_1
+    fovCircle1.Color = Color3.fromRGB(255, 80, 140)
+    fovCircle1.Thickness = 1.5
+    fovCircle1.Filled = false
+    fovCircle1.Transparency = 0.8
+end
+
+createToggle(Tabs["Combat"], "M-Bot 1 (Tracking + FOV)", "MBot1", function()
+    if ToggleSetters["MBot2"] and ToggleSetters["MBot2"].Get() then
+        ToggleSetters["MBot2"].Set(false)
     end
-)
 
--- 4. FPS
-createToggle(
-    Tabs["🚦 FPS"],
-    "Potato Graphics",
-    "FPS",
-    function()
-        Lighting.GlobalShadows = false
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.Material = Enum.Material.SmoothPlastic
-            end
+    MBot1Enabled = true
+    if fovCircle1 then fovCircle1.Visible = true end
+    disconnect("Feature_MBot1")
+    Connections["Feature_MBot1"] = RunService.RenderStepped:Connect(function()
+        if not MBot1Enabled then return end
+        local camera = Workspace.CurrentCamera
+        if not camera then return end
+        local viewportSize = camera.ViewportSize
+        if fovCircle1 then
+            fovCircle1.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
         end
-    end,
-    function()
-        Lighting.GlobalShadows = true
-    end
-)
 
--- [ Open / Close Toggle ]
-local ToggleBtn = Instance.new("TextButton", ScreenGui)
-ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
-ToggleBtn.Position = UDim2.new(0, 20, 0, 100)
-ToggleBtn.Text = "WAN"
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleBtn.TextSize = 14
-ToggleBtn.Font = Enum.Font.SourceSansBold
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 120)
-Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 8)
-
-ToggleBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = not MainFrame.Visible
+        local targetPart = getBestTarget(FOV_RADIUS_1)
+        if targetPart then
+            local targetCFrame = CFrame.new(camera.CFrame.Position, targetPart.Position)
+            camera.CFrame = camera.CFrame:Lerp(targetCFrame, AimSmoothness)
+        end
+    end)
+end, function()
+    MBot1Enabled = false
+    if fovCircle1 then fovCircle1.Visible = false end
+    disconnect("Feature_MBot1")
 end)
+
+-- 4. M-BOT 2
+local MBot2Enabled = false
+local FOV_RADIUS_2 = 150
+local currentTarget2 = nil
+
+local fovCircle2 = hasDrawing and Drawing.new("Circle") or nil
+if fovCircle2 then
+    fovCircle2.Visible = false
+    fovCircle2.Radius = FOV_RADIUS_2
+    fovCircle2.Color = Color3.fromRGB(0, 220, 255)
+    fovCircle2.Thickness = 1.5
+    fovCircle2.Filled = false
+    fovCircle2.Transparency = 0.8
+end
+
+local snapLine = hasDrawing and Drawing.new("Line") or nil
+if snapLine then
+    snapLine.Visible = false
+    snapLine.Color = Color3.fromRGB(255, 255, 255)
+    snapLine.Thickness = 1.5
+    snapLine.Transparency = 0.9
+end
+
+createToggle(Tabs["Combat"], "M-Bot 2 (Strict FOV + Snapline)", "MBot2", function()
+    if ToggleSetters["MBot1"] and ToggleSetters["MBot1"].Get() then
+        ToggleSetters["MBot1"].Set(false)
+    end
+
+    MBot2Enabled = true
+    if fovCircle2 then fovCircle2.Visible = true end
+    currentTarget2 = nil
+    disconnect("Feature_MBot2")
+    
+    Connections["Feature_MBot2"] = RunService.RenderStepped:Connect(function()
+        if not MBot2Enabled then return end
+        local camera = Workspace.CurrentCamera
+        if not camera then return end
+        local viewportSize = camera.ViewportSize
+        local screenCenter = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+        if fovCircle2 then fovCircle2.Position = screenCenter end
+
+        local myChar = localPlayer.Character
+        
+        if currentTarget2 then
+            local hum = currentTarget2.Parent and currentTarget2.Parent:FindFirstChildOfClass("Humanoid")
+            local targetPart = currentTarget2
+            if not hum or hum.Health <= 0 or not targetPart or not targetPart.Parent then
+                currentTarget2 = nil
+            else
+                if AimbotTeamCheck and localPlayer.Team then
+                    local p = Players:GetPlayerFromCharacter(currentTarget2.Parent)
+                    if p and p.Team == localPlayer.Team then
+                        currentTarget2 = nil
+                    end
+                end
+
+                if currentTarget2 and not isVisible(currentTarget2, myChar) then
+                    currentTarget2 = nil
+                end
+
+                if currentTarget2 then
+                    local screenPoint, onScreen = camera:WorldToViewportPoint(targetPart.Position)
+                
